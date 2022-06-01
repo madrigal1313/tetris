@@ -104,6 +104,7 @@ class Piece(pygame.sprite.Sprite):
         self.rotationState = 2 # set to state 2 (incremented to 3 later)
     self.image = pygame.transform.rotate(self.image, rotation) # Rotate image 90 degrees
     self.mask = pygame.mask.from_surface(self.image) # apply collision mask to sprite
+    self.mask = self.mask.scale((self.image.get_width() + 15, self.image.get_height() + 15))
     self.rotationState += 1 if self.rotationState != 3 else -3 # increment rotation state (or reset if overflow)
     self.rightStopOffset = pieceShape.getStopOffsets(self.shape, self.rotationState, False)
     self.bottomStopOffset = pieceShape.getStopOffsets(self.shape, self.rotationState, True)
