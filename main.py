@@ -27,7 +27,7 @@ class pieceShape(enum.Enum):
     return sizes[shape]
 
   @classmethod
-  def getStopOffsets(cls, shape, type: int, rotation: int = None) -> int:
+  def getStopOffsets(cls, shape, type: int, rotation: int) -> int:
     offsetsRight = {
       cls.LONG: (4, 1, 4, 1),
       cls.T: (3, 2, 3, 2),
@@ -47,39 +47,105 @@ class pieceShape(enum.Enum):
       cls.L_RIGHT: (2, 3, 2, 3)
     }
     posOffsets = {
-      cls.LONG: (1, 4, 1, 4),
-      cls.T: (2, 3, 2, 3),
-      cls.SQUARE: (2, 2, 2, 2),
-      cls.Z_LEFT: {
+      cls.LONG: {
         0: (
+          (0, 0),
           (1, 0),
           (2, 0),
-          (0, -1),
-          (-1, -1),
+          (3, 0)
         ),
-        90: (
+        1: (
           (0, 0),
-          (0, -1),
-          (1, -1),
-          (1, -2),
+          (0, 1),
+          (0, 2),
+          (0, 3)
         )
       },
-      cls.Z_RIGHT: {
-        0: (
+      cls.T: (2, 3, 2, 3),
+      cls.SQUARE: (2, 2, 2, 2),
+      cls.Z_LEFT: (
+        (
+          (1, 0),
+          (2, 0),
+          (0, 1),
+          (1, 1),
+        ),
+        (
+          (0, 0),
+          (0, 1),
+          (1, 1),
+          (1, 2),
+        )
+      ),
+      cls.Z_RIGHT: (
+        (
           (0, 0),
           (1, 0),
-          (1, -1),
-          (2, -1)
+          (1, 1),
+          (2, 1)
         ),
-        90: (
-          
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
         )
-      },
-      cls.L_LEFT: (2, 3, 2, 3),
-      cls.L_RIGHT: (2, 3, 2, 3)
+      ),
+      cls.L_LEFT: (
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        )
+      ),
+      cls.L_RIGHT: (
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        )
+      )
     }
     if type in (0, 1): return (offsetsRight if type == 0 else offsetsBottom)[shape][rotation] * interval
-    elif type == 2: return posOffsets[shape]
+    elif type == 2: return posOffsets[shape][rotation]
 
 class pieceDirection(enum.Enum):
   LEFT = 0
@@ -124,6 +190,7 @@ class Piece(pygame.sprite.Sprite):
     self.rotationState = 0
     self.rightStopOffset = pieceShape.getStopOffsets(self.shape, 0, self.rotationState)
     self.bottomStopOffset = pieceShape.getStopOffsets(self.shape, 1, self.rotationState)
+    self.rectPartial = pieceShape.getStopOffsets(self.shape, 2, self.rotationState)
     
     # rect is the actual position of the piece
     self.rect = self.image.get_rect()
@@ -136,17 +203,32 @@ class Piece(pygame.sprite.Sprite):
     return self.rect[1] >= gridPos[1][1] - self.bottomStopOffset
 
   def getCoords(self) -> tuple:
-    pass
+    return
+    
+    self.rectPartial = pieceShape.getStopOffsets(self.shape, 2, self.rotationState)
+    partialPieceCoords = []
+    currentPos = (self.rect[0], self.rect[1])
+    for i in self.rectPartial():
+      partialPieceCoords.append((currentPos[0] + i[0] * interval, currentPos[1] + [1] * interval))
+    print(partialPieceCoords)
+  
+  def crop(self):
+    # return
+
+    pygame.Surface.blit(self, self.rect, self.image.get_height() / 2)
+    
+    
+    
   
   def rotate(self) -> None:
-    rotation = 90
+    rotation = -90
     # TODO: shapes can clip through the right wall if rotated incorrectly
     if self.shape == pieceShape.SQUARE:
       return # Squares cause funky things to occur, so they are skipped
-    elif self.shape in (pieceShape.Z_LEFT, pieceShape.Z_RIGHT):
+    elif self.shape in (pieceShape.Z_LEFT, pieceShape.Z_RIGHT, pieceShape.LONG):
       if self.rotationState == 0:
         # These values need to be tweaked as there is a weird behavior when in the 1st position when trying to place a Z piece
-        rotation = 270 # wrap around back to state 0
+        rotation = -270 # wrap around back to state 0
         self.rotationState = 2 # set to state 2 (incremented to 3 later)
     self.image = pygame.transform.rotate(self.image, rotation) # Rotate image 90 degrees
     self.mask = pygame.mask.from_surface(self.image) # apply collision mask to sprite
@@ -228,6 +310,7 @@ def lineCheck() -> Optional[gameState]:
     pieceY = (lockedPiece.rect[1] - gridPos[0][1]) / interval
     if pieceY <= 1: return gameState.LOST
     potentialLines[int(pieceY)] += 1
+    lockedPiece.getCoords()
   for potentialLine in potentialLines:
     if potentialLine == 10: print("LINE!!!")
 
@@ -254,6 +337,7 @@ while True:
     state = lineCheck()
     if state == gameState.LOST: break
     lockedSprites.add(currentSprite)
+    Piece.crop(currentSprite)
     """
     def spriteRects():
       #for x in lockedSprites.sprites():
