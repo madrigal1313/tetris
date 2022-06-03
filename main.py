@@ -2,9 +2,14 @@ import pygame
 import enum
 import os
 import random
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 class pieceShape(enum.Enum):
+  """
+  Enum used to define piece shapes
+  While it is an enum, it has classmethods to get properties of each piece
+  """
+  
   LONG = 'long.png'
   T = 't.png'
   SQUARE = 'square.png'
@@ -15,6 +20,9 @@ class pieceShape(enum.Enum):
 
   @classmethod
   def getSize(cls, shape) -> Tuple[int, int]:
+    """
+    Returns size in a coordinate pair of pixels
+    """
     sizes = {
       cls.LONG: (120, 30),
       cls.T: (90, 60),
@@ -27,7 +35,11 @@ class pieceShape(enum.Enum):
     return sizes[shape]
 
   @classmethod
-  def getStopOffsets(cls, shape, type: int, rotation: int) -> int:
+  def getStopOffsets(cls, shape, type: int, rotation: int) -> Optional[int]:
+    """
+    Returns a stop offset in pixels based on shape and rotation
+    These are used to prevent shapes from clipping out of bounds
+    """
     offsetsRight = {
       cls.LONG: (4, 1, 4, 1),
       cls.T: (3, 2, 3, 2),
@@ -49,7 +61,10 @@ class pieceShape(enum.Enum):
     if type in (0, 1): return (offsetsRight if type == 0 else offsetsBottom)[shape][rotation] * interval
 
   @classmethod
-  def getRectOffset(cls, shape, rotation: int) -> tuple:
+  def getRectOffset(cls, shape, rotation: int) -> Union[tuple, list]:
+    """
+    Returns a tuple/list containing offsets to each partial tetris block based off of the top left corner in the rect
+    """
     posOffsets = {
       cls.LONG: (
         (
@@ -189,12 +204,18 @@ class pieceShape(enum.Enum):
     return posOffsets[shape][rotation]
 
 class pieceDirection(enum.Enum):
+  """
+  Enum to define which way a piece is moving
+  """
   LEFT = 0
   RIGHT = 1
   DOWN = 2
   UP = 3
 
 class gameState(enum.Enum):
+  """
+  Enum to define the state of the game
+  """
   NORMAL = 0
   LOST = 1
 
@@ -218,6 +239,9 @@ class AwaitingPiece(pygame.sprite.Sprite):
     return self.shape
 
 class Piece(pygame.sprite.Sprite):
+  """
+  The main Piece class which is used as an active sprite and also in locked sprites
+  """
   def __init__(self, shape: pieceShape) -> None:
     pygame.sprite.Sprite.__init__(self)
     self.shape = shape
@@ -242,15 +266,13 @@ class Piece(pygame.sprite.Sprite):
     """
     return self.rect[1] >= gridPos[1][1] - self.bottomStopOffset
 
-  def getCoords(self) -> tuple:    
+  def getCoords(self) -> list:    
     self.rectPartial = pieceShape.getRectOffset(self.shape, self.rotationState)
     currentPos = (self.rect[0], self.rect[1])
-    partialPieceCoords = tuple([(currentPos[0] + i[0] * interval, currentPos[1] + i[1] * interval) for i in self.rectPartial])
-    print(partialPieceCoords)
-    return partialPieceCoords
+    return [(currentPos[0] + i[0] * interval, currentPos[1] + i[1] * interval) for i in self.rectPartial]
   
   def crop(self):
-    return
+    return "ADAM DONT FORGET TO REMOVE THIS STATEMENT"
     
     (width, height) = self.image.get_size()
     newImage = pygame.Surface((width, height))
@@ -260,8 +282,6 @@ class Piece(pygame.sprite.Sprite):
     #self.image.kill()
     #self.rect.update(0, 30, width, height)
 
-    
-    
   def rotate(self) -> None:
     rotation = -90
     # TODO: shapes can clip through the right wall if rotated incorrectly
@@ -269,7 +289,7 @@ class Piece(pygame.sprite.Sprite):
       return # Squares cause funky things to occur, so they are skipped
     elif self.shape in (pieceShape.Z_LEFT, pieceShape.Z_RIGHT, pieceShape.LONG):
       if self.rotationState == 0:
-        # These values need to be tweaked as there is a weird behavior when in the 1st position when trying to place a Z piece
+        # values need to be tweaked as there is a weird behavior with masks when in the 1st position when trying to place a Z/long piece
         rotation = 90 # wrap around back to state 0
         self.rotationState = 2
     
@@ -300,53 +320,17 @@ def drawGrid() -> None:
 
 def updatePieces(awaitingPiece) -> Tuple[Piece, AwaitingPiece]:
   convertedSprite = Piece(awaitingPiece.shape)
+  choices = list(pieceShape)
+  choices.remove(awaitingPiece.shape)
+  choice = random.choice(choices)
   awaitingPiece.kill()
-  new = AwaitingPiece(random.choice(list(pieceShape)))
+  new = AwaitingPiece(choice)
   return convertedSprite, new
 
-gridPos = ((30, 30), (300, 600)) # serves as boundaries which are used pretty much everywhere
-gridLinesEnabled = False
-interval = 30 # pixels per tetris square
-
-pygame.init()
-screen = pygame.display.set_mode([500, 630])
-screenRect = screen.get_rect()
-clock = pygame.time.Clock()
-
-# Sprite group for active sprite
-currentSprite = Piece(random.choice(list(pieceShape)))
-groupCurrent = pygame.sprite.GroupSingle()
-groupCurrent.add(currentSprite)
-
-# Awaiting sprite
-newSprite = AwaitingPiece(random.choice(list(pieceShape)))
-groupNew = pygame.sprite.GroupSingle()
-groupNew.add(newSprite)
-
-# Sprites which have hit the ground or another sprite
-lockedSprites = pygame.sprite.Group()
-
-# block falling mechanics
-doFall = 0
-
-pygame.display.set_caption('Tetris')
-font = pygame.font.Font('freesansbold.ttf', 32)
-
-score = 0
-
-
-def text():
-  scoreText = font.render(("Score:"), True, (0, 0, 0))
-  scoreTextRect = scoreText.get_rect()
-  scoreTextRect.center = (400, 150)
-  
+def text() -> None:
   scoreAmountText = font.render(str(score), True, (0, 0, 0))
   scoreAmountTextRect = scoreAmountText.get_rect()
   scoreAmountTextRect.center = (400, 200)
-
-  nextPieceText = font.render("Next Piece", True, (0, 0, 0))
-  nextPieceTextRect = nextPieceText.get_rect()
-  nextPieceTextRect.center = (400, 300)
 
   screen.blit(scoreText, scoreTextRect)
   screen.blit(scoreAmountText, scoreAmountTextRect)
@@ -367,59 +351,143 @@ def lineCheck(lockedPieces) -> Optional[gameState]:
       detectedLines.append(i)
   if any(detectedLines): print(f"LINE(S) AT {detectedLines}")
 
-pause = False
-while True:
-  if pause:
+gridPos = ((30, 30), (300, 600)) # serves as boundaries which are used pretty much everywhere
+gridLinesEnabled = False
+interval = 30 # pixels per tetris square
+
+pygame.init()
+screen = pygame.display.set_mode([500, 630])
+screenRect = screen.get_rect()
+clock = pygame.time.Clock()
+
+# text constants
+pygame.display.set_caption('Tetris')
+global font
+font = pygame.font.Font('freesansbold.ttf', 32)
+scoreText = font.render(("Score:"), True, (0, 0, 0))
+scoreTextRect = scoreText.get_rect()
+scoreTextRect.center = (400, 150)
+nextPieceText = font.render("Next Piece", True, (0, 0, 0))
+nextPieceTextRect = nextPieceText.get_rect()
+nextPieceTextRect.center = (400, 300)
+
+# main title screen
+def main() -> None:
+  starting = False
+
+  mainText = font.render(("Press SPACE to start"), True, (0, 0, 0))
+  mainTextRect = mainText.get_rect()
+  mainTextRect.center = (250, 315)
+  
+  while True:
     for event in pygame.event.get():
-      if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-        pause = False
-    continue
+      if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+        starting = True
+    if starting: break
+    screen.fill((255, 255, 255))
+    screen.blit(mainText, mainTextRect)
+    pygame.display.update()
+  if starting: game()
+  pygame.quit()
+
+# screen if you lost
+def lost() -> None:
+  starting = False
+
+  lostText = font.render(("You Lost!"), True, (0, 0, 0))
+  beginText = font.render(("Press space to begin again"), True, (0, 0, 0))
+  lostTextRect = lostText.get_rect()
+  beginTextRect = beginText.get_rect()
+  lostTextRect.center = (250, 300)
+  beginTextRect.center = (250, 330)
   
-  doFall += clock.get_rawtime()
-  clock.tick()
-  addY = 0
-  for event in pygame.event.get():
-    if event.type == pygame.QUIT: 
-      break
-
-    if event.type == pygame.KEYDOWN:
-      if event.key == pygame.K_RIGHT:
-        currentSprite.move(pieceDirection.RIGHT)
-      elif event.key == pygame.K_LEFT:
-        currentSprite.move(pieceDirection.LEFT)
-      elif event.key == pygame.K_DOWN:
-        currentSprite.move(pieceDirection.DOWN)
-        score += 1
-      elif event.key == pygame.K_UP:
-        currentSprite.rotate()
-      elif event.key == pygame.K_ESCAPE:
-        pause = True
-
-  if pygame.sprite.spritecollideany(currentSprite, lockedSprites, pygame.sprite.collide_mask) or currentSprite.touchingBottom():
-    #currentSprite.mask = currentSprite.mask.scale((currentSprite.image.get_width(), currentSprite.image.get_height()))
-    currentSprite.crop()
-    lockedSprites.add(currentSprite)
-    groupCurrent.empty()
-    groupNew.empty()
-    (currentSprite, newSprite) = updatePieces(newSprite)
-    groupCurrent.add(currentSprite)
-    groupNew.add(newSprite)
-
-    state = lineCheck(lockedSprites)
-    if state == gameState.LOST: break
-
-  if doFall/1000 > 0.27:
-    doFall = 0
-    score += 1
-    currentSprite.move(pieceDirection.DOWN)
+  while True:
+    for event in pygame.event.get():
+      if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+        starting = True
+    if starting: break
+    screen.fill((255, 255, 255))
+    screen.blit(lostText, lostTextRect)
+    screen.blit(beginText, beginTextRect)
+    pygame.display.update()
+  if starting: game()
+  pygame.quit()
   
-  screen.fill((255, 255, 255))
-  drawGrid()
+# actual game
+def game() -> None:
+  # Sprite group for active sprite
+  currentSprite = Piece(random.choice(list(pieceShape)))
+  groupCurrent = pygame.sprite.GroupSingle()
+  groupCurrent.add(currentSprite)
   
-  groupCurrent.draw(screen)
-  groupNew.draw(screen)
-  text()  
+  # Awaiting sprite
+  newSprite = AwaitingPiece(random.choice(list(pieceShape)))
+  groupNew = pygame.sprite.GroupSingle()
+  groupNew.add(newSprite)
+  
+  # Sprites which have hit the ground or another sprite
+  lockedSprites = pygame.sprite.Group()
+  
+  # runtime states
+  doFall = 0
+  global score
+  score = 0
+  pause = False
+  while True:
+    if pause:
+      for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+          pause = False
+      continue
     
-  lockedSprites.draw(screen)
-  pygame.display.update()
-pygame.quit()
+    doFall += clock.get_rawtime()
+    clock.tick()
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT: 
+        break
+  
+      if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_RIGHT:
+          currentSprite.move(pieceDirection.RIGHT)
+        elif event.key == pygame.K_LEFT:
+          currentSprite.move(pieceDirection.LEFT)
+        elif event.key == pygame.K_DOWN:
+          currentSprite.move(pieceDirection.DOWN)
+          score += 1
+        elif event.key == pygame.K_UP:
+          currentSprite.rotate()
+        elif event.key == pygame.K_ESCAPE:
+          pause = True
+  
+    if pygame.sprite.spritecollideany(currentSprite, lockedSprites, pygame.sprite.collide_mask) or currentSprite.touchingBottom():
+      #currentSprite.mask = currentSprite.mask.scale((currentSprite.image.get_width(), currentSprite.image.get_height()))
+      currentSprite.crop()
+      lockedSprites.add(currentSprite)
+      groupCurrent.empty()
+      groupNew.empty()
+      (currentSprite, newSprite) = updatePieces(newSprite)
+      groupCurrent.add(currentSprite)
+      groupNew.add(newSprite)
+  
+      state = lineCheck(lockedSprites)
+      if state == gameState.LOST:
+        lost()
+        break
+  
+    if doFall/1000 > 0.25:
+      doFall = 0
+      score += 1
+      currentSprite.move(pieceDirection.DOWN)
+    
+    screen.fill((255, 255, 255))
+    drawGrid()
+    
+    groupCurrent.draw(screen)
+    groupNew.draw(screen)
+    text()  
+      
+    lockedSprites.draw(screen)
+    pygame.display.update()
+
+# Start the main menu
+main()
