@@ -259,6 +259,7 @@ class Piece(pygame.sprite.Sprite):
     # rect is the actual position of the piece (does not include collision mask)
     self.rect = self.image.get_rect()
     (self.rect[0], self.rect[1]) = gridPos[0]
+    # self.rect[0] = 135 # this does not work because it isnt centered by interval
   
   def touchingBottom(self) -> bool:
     """
@@ -345,7 +346,6 @@ def lineCheck(lockedPieces) -> Optional[gameState]:
     partialPieceCoords = lockedPiece.getCoords()
     for coord in partialPieceCoords:
       potentialLines[int((coord[1] - gridPos[0][1]) / interval)] += 1
-  print(potentialLines)
   for i in range(len(potentialLines)):
     if potentialLines[i] >= 9:
       detectedLines.append(i)
