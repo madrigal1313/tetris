@@ -46,23 +46,61 @@ class pieceShape(enum.Enum):
       cls.L_LEFT: (2, 3, 2, 3),
       cls.L_RIGHT: (2, 3, 2, 3)
     }
+    if type in (0, 1): return (offsetsRight if type == 0 else offsetsBottom)[shape][rotation] * interval
+
+  @classmethod
+  def getRectOffset(cls, shape, rotation: int) -> tuple:
     posOffsets = {
-      cls.LONG: {
-        0: (
+      cls.LONG: (
+        (
           (0, 0),
           (1, 0),
           (2, 0),
           (3, 0)
         ),
-        1: (
+        (),
+        (),
+        (
           (0, 0),
           (0, 1),
           (0, 2),
           (0, 3)
         )
-      },
-      cls.T: (2, 3, 2, 3),
-      cls.SQUARE: (2, 2, 2, 2),
+      ),
+      cls.T: (
+        (
+          (0, 0),
+          (1, 0),
+          (2, 0),
+          (1, 1)
+        ),
+        (
+          (0, 0),
+          (0, 1),
+          (1, 1),
+          (0, 2)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (2, 1)
+        ),
+        (
+          (1, 0),
+          (0, 1),
+          (1, 1),
+          (1, 2)
+        )
+      ),
+      cls.SQUARE: [
+        (
+          (0, 0),
+          (1, 0),
+          (0, 1),
+          (1, 1)
+        )
+      ],
       cls.Z_LEFT: (
         (
           (1, 0),
@@ -70,6 +108,8 @@ class pieceShape(enum.Enum):
           (0, 1),
           (1, 1),
         ),
+        (),
+        (),
         (
           (0, 0),
           (0, 1),
@@ -84,6 +124,8 @@ class pieceShape(enum.Enum):
           (1, 1),
           (2, 1)
         ),
+        (),
+        (),
         (
           (1, 0),
           (0, 1),
@@ -93,59 +135,58 @@ class pieceShape(enum.Enum):
       ),
       cls.L_LEFT: (
         (
+          (0, 0),
           (1, 0),
-          (0, 1),
-          (1, 1),
-          (0, 2)
+          (2, 0),
+          (0, 1)
         ),
         (
-          (1, 0),
+          (0, 0),
           (0, 1),
           (1, 1),
-          (0, 2)
+          (1, 2)
         ),
         (
-          (1, 0),
+          (2, 0),
           (0, 1),
           (1, 1),
-          (0, 2)
+          (2, 1)
         ),
         (
-          (1, 0),
+          (0, 0),
           (0, 1),
-          (1, 1),
-          (0, 2)
+          (0, 2),
+          (1, 2)
         )
       ),
       cls.L_RIGHT: (
         (
+          (0, 0),
           (1, 0),
-          (0, 1),
-          (1, 1),
-          (0, 2)
+          (2, 0),
+          (2, 1)
         ),
         (
           (1, 0),
-          (0, 1),
           (1, 1),
+          (1, 2),
           (0, 2)
         ),
         (
-          (1, 0),
+          (0, 0),
           (0, 1),
           (1, 1),
-          (0, 2)
+          (2, 1)
         ),
         (
+          (0, 0),
           (1, 0),
           (0, 1),
-          (1, 1),
           (0, 2)
         )
       )
     }
-    if type in (0, 1): return (offsetsRight if type == 0 else offsetsBottom)[shape][rotation] * interval
-    elif type == 2: return posOffsets[shape][rotation]
+    return posOffsets[shape][rotation]
 
 class pieceDirection(enum.Enum):
   LEFT = 0
@@ -180,19 +221,18 @@ class Piece(pygame.sprite.Sprite):
   def __init__(self, shape: pieceShape) -> None:
     pygame.sprite.Sprite.__init__(self)
     self.shape = shape
-
     self.image = pygame.transform.scale(
       pygame.image.load(os.path.join(self.shape.value)),
-      [i-0 for i in pieceShape.getSize(self.shape)]
+      pieceShape.getSize(self.shape)
     )
     self.mask = pygame.mask.from_surface(self.image) # collision mask
     self.mask = self.mask.scale((self.image.get_width() - 10, self.image.get_height() + 15))
     self.rotationState = 0
     self.rightStopOffset = pieceShape.getStopOffsets(self.shape, 0, self.rotationState)
     self.bottomStopOffset = pieceShape.getStopOffsets(self.shape, 1, self.rotationState)
-    self.rectPartial = pieceShape.getStopOffsets(self.shape, 2, self.rotationState)
+    self.rectPartial = pieceShape.getRectOffset(self.shape, self.rotationState)
     
-    # rect is the actual position of the piece
+    # rect is the actual position of the piece (does not include collision mask)
     self.rect = self.image.get_rect()
     (self.rect[0], self.rect[1]) = gridPos[0]
   
@@ -202,24 +242,26 @@ class Piece(pygame.sprite.Sprite):
     """
     return self.rect[1] >= gridPos[1][1] - self.bottomStopOffset
 
-  def getCoords(self) -> tuple:
-    return
-    
-    self.rectPartial = pieceShape.getStopOffsets(self.shape, 2, self.rotationState)
-    partialPieceCoords = []
+  def getCoords(self) -> tuple:    
+    self.rectPartial = pieceShape.getRectOffset(self.shape, self.rotationState)
     currentPos = (self.rect[0], self.rect[1])
-    for i in self.rectPartial():
-      partialPieceCoords.append((currentPos[0] + i[0] * interval, currentPos[1] + [1] * interval))
+    partialPieceCoords = tuple([(currentPos[0] + i[0] * interval, currentPos[1] + i[1] * interval) for i in self.rectPartial])
     print(partialPieceCoords)
+    return partialPieceCoords
   
   def crop(self):
-    # return
+    return
+    
+    (width, height) = self.image.get_size()
+    newImage = pygame.Surface((width, height))
+    newImage.set_colorkey((0, 0, 0))
+    self.image.blit(newImage, (0, 0), (0, 0, width, 30))
+    pygame.mask.from_surface(newImage)
+    #self.image.kill()
+    #self.rect.update(0, 30, width, height)
 
-    pygame.Surface.blit(self, self.rect, self.image.get_height() / 2)
     
     
-    
-  
   def rotate(self) -> None:
     rotation = -90
     # TODO: shapes can clip through the right wall if rotated incorrectly
@@ -228,8 +270,9 @@ class Piece(pygame.sprite.Sprite):
     elif self.shape in (pieceShape.Z_LEFT, pieceShape.Z_RIGHT, pieceShape.LONG):
       if self.rotationState == 0:
         # These values need to be tweaked as there is a weird behavior when in the 1st position when trying to place a Z piece
-        rotation = -270 # wrap around back to state 0
-        self.rotationState = 2 # set to state 2 (incremented to 3 later)
+        rotation = 90 # wrap around back to state 0
+        self.rotationState = 2
+    
     self.image = pygame.transform.rotate(self.image, rotation) # Rotate image 90 degrees
     self.mask = pygame.mask.from_surface(self.image) # apply collision mask to sprite
     self.mask = self.mask.scale((self.image.get_width() - 10, self.image.get_height() + 15))
@@ -245,10 +288,9 @@ class Piece(pygame.sprite.Sprite):
       if self.rect[0] < gridPos[1][0] - self.rightStopOffset: # rightStopOffset is to prevent pieces from going out of bounds
         self.rect[0] += interval
     elif direction == pieceDirection.DOWN:
-      print(f"{self.rect[0]}, {self.rect[1]}")
       self.rect[1] += interval
     elif direction == pieceDirection.UP: # should only be called if it has clipped into another sprite
-      self.rect[1] -= interval / speed
+      self.rect[1] -= interval
 
 def drawGrid() -> None:
   pygame.draw.line(screen, (0, 0, 0), (gridPos[0][0], gridPos[0][1]), (gridPos[1][0], gridPos[0][1]))
@@ -256,15 +298,14 @@ def drawGrid() -> None:
   pygame.draw.line(screen, (0, 0, 0), (gridPos[0][0], gridPos[0][1]), (gridPos[0][0], gridPos[1][1]))
   pygame.draw.line(screen, (0, 0, 0), (gridPos[1][0], gridPos[1][1]), (gridPos[1][0], gridPos[0][1]))
 
-def updatePieces() -> Tuple[Piece, AwaitingPiece]:
-  convertedSprite = Piece(newSprite.shape)
-  newSprite.kill()
+def updatePieces(awaitingPiece) -> Tuple[Piece, AwaitingPiece]:
+  convertedSprite = Piece(awaitingPiece.shape)
+  awaitingPiece.kill()
   new = AwaitingPiece(random.choice(list(pieceShape)))
   return convertedSprite, new
 
 gridPos = ((30, 30), (300, 600)) # serves as boundaries which are used pretty much everywhere
 gridLinesEnabled = False
-speed = 100
 interval = 30 # pixels per tetris square
 
 pygame.init()
@@ -288,11 +329,17 @@ lockedSprites = pygame.sprite.Group()
 # block falling mechanics
 doFall = 0
 
-score = 0
 pygame.display.set_caption('Tetris')
 font = pygame.font.Font('freesansbold.ttf', 32)
 
-def text() -> None:
+score = 0
+
+
+def text():
+  scoreText = font.render(("Score:"), True, (0, 0, 0))
+  scoreTextRect = scoreText.get_rect()
+  scoreTextRect.center = (400, 150)
+  
   scoreAmountText = font.render(str(score), True, (0, 0, 0))
   scoreAmountTextRect = scoreAmountText.get_rect()
   scoreAmountTextRect.center = (400, 200)
@@ -300,21 +347,34 @@ def text() -> None:
   nextPieceText = font.render("Next Piece", True, (0, 0, 0))
   nextPieceTextRect = nextPieceText.get_rect()
   nextPieceTextRect.center = (400, 300)
-  
+
+  screen.blit(scoreText, scoreTextRect)
   screen.blit(scoreAmountText, scoreAmountTextRect)
   screen.blit(nextPieceText, nextPieceTextRect)
 
-def lineCheck() -> Optional[gameState]:
+def lineCheck(lockedPieces) -> Optional[gameState]:
   potentialLines = [0 for _ in range(20)]
-  for lockedPiece in lockedSprites:
+  detectedLines = []
+  for lockedPiece in lockedPieces:
     pieceY = (lockedPiece.rect[1] - gridPos[0][1]) / interval
     if pieceY <= 1: return gameState.LOST
-    potentialLines[int(pieceY)] += 1
-    lockedPiece.getCoords()
-  for potentialLine in potentialLines:
-    if potentialLine == 10: print("LINE!!!")
+    partialPieceCoords = lockedPiece.getCoords()
+    for coord in partialPieceCoords:
+      potentialLines[int((coord[1] - gridPos[0][1]) / interval)] += 1
+  print(potentialLines)
+  for i in range(len(potentialLines)):
+    if potentialLines[i] >= 9:
+      detectedLines.append(i)
+  if any(detectedLines): print(f"LINE(S) AT {detectedLines}")
 
+pause = False
 while True:
+  if pause:
+    for event in pygame.event.get():
+      if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        pause = False
+    continue
+  
   doFall += clock.get_rawtime()
   clock.tick()
   addY = 0
@@ -329,47 +389,37 @@ while True:
         currentSprite.move(pieceDirection.LEFT)
       elif event.key == pygame.K_DOWN:
         currentSprite.move(pieceDirection.DOWN)
+        score += 1
       elif event.key == pygame.K_UP:
         currentSprite.rotate()
+      elif event.key == pygame.K_ESCAPE:
+        pause = True
 
   if pygame.sprite.spritecollideany(currentSprite, lockedSprites, pygame.sprite.collide_mask) or currentSprite.touchingBottom():
     #currentSprite.mask = currentSprite.mask.scale((currentSprite.image.get_width(), currentSprite.image.get_height()))
-    state = lineCheck()
-    if state == gameState.LOST: break
+    currentSprite.crop()
     lockedSprites.add(currentSprite)
-    Piece.crop(currentSprite)
-    """
-    def spriteRects():
-      #for x in lockedSprites.sprites():
-        #return x.rect
-    #stationaryRect = currentSprite.rect.union_ip(spriteRects())
-    while addY <= 600:
-      line = lineCheck(0 + addY)
-      print(type(stationaryRect))
-      if line.contains(stationaryRect):
-        print("yay")
-      addY += 30
-    """ 
     groupCurrent.empty()
     groupNew.empty()
-    (currentSprite, newSprite) = updatePieces()
+    (currentSprite, newSprite) = updatePieces(newSprite)
     groupCurrent.add(currentSprite)
     groupNew.add(newSprite)
+
+    state = lineCheck(lockedSprites)
+    if state == gameState.LOST: break
 
   if doFall/1000 > 0.27:
     doFall = 0
     score += 1
-    # currentSprite.move(pieceDirection.DOWN)
+    currentSprite.move(pieceDirection.DOWN)
   
   screen.fill((255, 255, 255))
   drawGrid()
   
   groupCurrent.draw(screen)
   groupNew.draw(screen)
-  text()
-  #print("phew")
+  text()  
     
   lockedSprites.draw(screen)
-  speed -= 2
   pygame.display.update()
 pygame.quit()
