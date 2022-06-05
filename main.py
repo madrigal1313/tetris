@@ -273,12 +273,13 @@ class Piece(pygame.sprite.Sprite):
     return [(currentPos[0] + i[0] * interval, currentPos[1] + i[1] * interval) for i in self.rectPartial]
   
   def crop(self):
-    return "ADAM DONT FORGET TO REMOVE THIS STATEMENT"
+    #return "ADAM DONT FORGET TO REMOVE THIS STATEMENT"
     
     (width, height) = self.image.get_size()
     newImage = pygame.Surface((width, height))
     newImage.set_colorkey((0, 0, 0))
-    self.image.blit(newImage, (0, 0), (0, 0, width, 30))
+    cropping = (0, 0, width, 30)
+    self.image.blit(newImage, (0, height - 30), cropping)
     pygame.mask.from_surface(newImage)
     #self.image.kill()
     #self.rect.update(0, 30, width, height)
@@ -342,19 +343,37 @@ def lineCheck(lockedPieces) -> Optional[gameState]:
   detectedLines = []
   for lockedPiece in lockedPieces:
     pieceY = (lockedPiece.rect[1] - gridPos[0][1]) / interval
-    if pieceY <= 1: return gameState.LOST
+    if pieceY <= 1: 
+      return gameState.LOST
     partialPieceCoords = lockedPiece.getCoords()
     for coord in partialPieceCoords:
       potentialLines[int((coord[1] - gridPos[0][1]) / interval)] += 1
   for i in range(len(potentialLines)):
     if potentialLines[i] >= 9:
       detectedLines.append(i)
-  if any(detectedLines): print(f"LINE(S) AT {detectedLines}")
+  if any(detectedLines): 
+    print(f"LINE(S) AT {detectedLines}")
+    for x in detectedLines:
+      #score += 50
+      lineY = x * 30 + 30
+      print(lineY)
+      for i in lockedPieces:
+        inLine = False
+        for y in range(i.rect.top, i.rect.bottom + 1):
+          if y == lineY:
+            inLine = True
+            break
+        if inLine == True:
+          lockedPieces.remove(i)
+        elif i.rect.top < lineY or i.rect.bottom != 600:
+          i.rect[1] += 30
+        
 
 gridPos = ((30, 30), (300, 600)) # serves as boundaries which are used pretty much everywhere
-gridLinesEnabled = False
 interval = 30 # pixels per tetris square
 
+
+#screen/clock settings
 pygame.init()
 screen = pygame.display.set_mode([500, 630])
 screenRect = screen.get_rect()
@@ -394,8 +413,8 @@ def main() -> None:
 def lost() -> None:
   starting = False
 
-  lostText = font.render(("You Lost!"), True, (0, 0, 0))
-  beginText = font.render(("Press space to begin again"), True, (0, 0, 0))
+  lostText = font.render((f"You Lost! Your score was {score}."), True, (0, 0, 0))
+  beginText = font.render(("Press space to begin again."), True, (0, 0, 0))
   lostTextRect = lostText.get_rect()
   beginTextRect = beginText.get_rect()
   lostTextRect.center = (250, 300)
@@ -429,6 +448,7 @@ def game() -> None:
   lockedSprites = pygame.sprite.Group()
   
   # runtime states
+  deletedShapes = []
   doFall = 0
   global score
   score = 0
@@ -461,7 +481,10 @@ def game() -> None:
   
     if pygame.sprite.spritecollideany(currentSprite, lockedSprites, pygame.sprite.collide_mask) or currentSprite.touchingBottom():
       #currentSprite.mask = currentSprite.mask.scale((currentSprite.image.get_width(), currentSprite.image.get_height()))
-      currentSprite.crop()
+      print(currentSprite.rect.top)
+      print(f"{currentSprite.rect.bottom}\n")
+      deletedShape = currentSprite.crop()
+      deletedShapes. append(deletedShape)
       lockedSprites.add(currentSprite)
       groupCurrent.empty()
       groupNew.empty()
